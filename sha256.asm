@@ -13,6 +13,12 @@ hash_prev:
 hash_curr:
   .long 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
 
+letters:
+  .ascii "0123456789abcdef"
+
+hash_string:
+  .ascii "                                                                \n"
+
   .section .text
   .globl _start
 
@@ -74,18 +80,22 @@ init_hash:
 
   # Hash all of the things
   movl $0, %edi
-process_loop:
+
+  # Arguments 2, 3, and 4 are constant, so just push them on once
   pushl $cube_roots
   pushl $chunks
   pushl $hash_curr
+process_loop:
   pushl %edi
   call iterate_hash
   popl %edi
-  addl $12, %esp
 
   incl %edi
   cmpl $64, %edi
   jl process_loop
+
+  # Done with the process loop, pop values off the stack
+  addl $12, %esp
 
   # Add new hash values to previous hash
   movl $0, %edi
@@ -98,6 +108,87 @@ add_hash:
   incl %edi
   cmpl $8, %edi
   jl add_hash
+
+  # Print out the hash
+  movl $0, %edi # string index
+  movl $0, %esi # hash index
+make_string:
+  # Stringify 8 characters at a time
+  movl hash_prev(, %esi, 4), %eax
+
+  # character 1
+  movl %eax, %ebx
+  andl $0xf0000000, %ebx
+  shrl $28, %ebx
+  movb letters(%ebx), %cl
+  movb %cl, hash_string(%edi)
+  incl %edi
+
+  # character 2
+  movl %eax, %ebx
+  andl $0x0f000000, %ebx
+  shrl $24, %ebx
+  movb letters(%ebx), %cl
+  movb %cl, hash_string(%edi)
+  incl %edi
+
+  # character 3
+  movl %eax, %ebx
+  andl $0x00f00000, %ebx
+  shrl $20, %ebx
+  movb letters(%ebx), %cl
+  movb %cl, hash_string(%edi)
+  incl %edi
+
+  # character 4
+  movl %eax, %ebx
+  andl $0x000f0000, %ebx
+  shrl $16, %ebx
+  movb letters(%ebx), %cl
+  movb %cl, hash_string(%edi)
+  incl %edi
+
+  # character 5
+  movl %eax, %ebx
+  andl $0x0000f000, %ebx
+  shrl $12, %ebx
+  movb letters(%ebx), %cl
+  movb %cl, hash_string(%edi)
+  incl %edi
+
+  # character 6
+  movl %eax, %ebx
+  andl $0x00000f00, %ebx
+  shrl $8, %ebx
+  movb letters(%ebx), %cl
+  movb %cl, hash_string(%edi)
+  incl %edi
+
+  # character 7
+  movl %eax, %ebx
+  andl $0x000000f0, %ebx
+  shrl $4, %ebx
+  movb letters(%ebx), %cl
+  movb %cl, hash_string(%edi)
+  incl %edi
+
+  # character 8
+  movl %eax, %ebx
+  andl $0x0000000f, %ebx
+  movb letters(%ebx), %cl
+  movb %cl, hash_string(%edi)
+  incl %edi
+
+  incl %esi
+  cmpl $8, %esi
+  jl make_string
+
+  # Tell the kernel to print out the string
+  movl $4, %eax # sys_write
+  movl $1, %ebx # stdout
+  movl $hash_string, %ecx # buffer pointer
+  movl $65, %edx # buffer length
+  int $0x80
 
 exit:
   movl $1, %eax
